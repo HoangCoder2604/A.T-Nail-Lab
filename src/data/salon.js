@@ -1,13 +1,24 @@
+const messengerPageId = import.meta.env.VITE_MESSENGER_PAGE || '61584573756566';
+const messengerUrl = `https://m.me/${messengerPageId}`;
+
+export const bookingHours = {
+  open: '09:30',
+  close: '20:30',
+};
+
 export const salon = {
   name: 'A.T NAIL LAB',
   owner: 'Do Anh Thu',
-  phone: '',
-  phoneDisplay: '',
-  instagram: 'a.t_nail_lab',
+  phone: '0938354909',
+  phoneDisplay: '0938 354 909',
+  address: '224 Hưng Phú, Chánh Hưng, Quận 8, TP.HCM',
+  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=224%20H%C6%B0ng%20Ph%C3%BA%2C%20Ch%C3%A1nh%20H%C6%B0ng%2C%20Qu%E1%BA%ADn%208%2C%20TPHCM',
+  hours: '09:30 – 20:30',
+  instagram: 'a.t.naillab',
   instagramUrl: 'https://www.instagram.com/a.t.naillab/',
-  facebookName: 'DO ANH THU',
-  facebookUrl: 'https://www.facebook.com/voi.mthu',
-  messengerUrl: 'https://www.messenger.com/e2ee/t/9178071282229620?locale=vi_VN',
+  facebookName: 'A.T Nail Lab',
+  facebookUrl: 'https://www.facebook.com/profile.php?id=61584573756566',
+  messengerUrl,
   
   promo: 'Đặt lịch trước 1 ngày — giảm 5%',
   tagline: 'Beautiful nails. Brighter you.',

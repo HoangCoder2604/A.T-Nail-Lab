@@ -1,0 +1,199 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function validBookingCreate(bookingCode) {
+      let d = request.resource.data;
+      let slot = getAfter(
+        /databases/$(database)/documents/bookingSlots/$(d.slot_id)
+      );
+
+      return d.keys().hasOnly([
+          'booking_code',
+          'customer_name',
+          'phone',
+          'email',
+          'service',
+          'booking_date',
+          'booking_time',
+          'note',
+          'status',
+          'messenger_psid',
+          'slot_id',
+          'lookup_key',
+          'created_at',
+          'updated_at',
+          'confirmed_at'
+        ])
+        && d.keys().hasAll([
+          'booking_code',
+          'customer_name',
+          'phone',
+          'email',
+          'service',
+          'booking_date',
+          'booking_time',
+          'note',
+          'status',
+          'messenger_psid',
+          'slot_id',
+          'lookup_key',
+          'created_at',
+          'updated_at',
+          'confirmed_at'
+        ])
+        && d.booking_code == bookingCode
+        && d.booking_code.matches('^ATN-[0-9]{6}-[A-Z0-9]{8}$')
+        && d.customer_name is string
+        && d.customer_name.size() >= 2
+        && d.customer_name.size() <= 100
+        && d.phone is string
+        && d.phone.matches('^[0-9]{9,12}$')
+        && (d.email == null || d.email is string)
+        && d['service'] is string
+        && d['service'].size() >= 2
+        && d['service'].size() <= 120
+        && d.booking_date is string
+        && d.booking_date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.booking_time is string
+        && d.booking_time.matches('^(09:30|1[0-9]:(00|30)|20:(00|30))$')
+        && (d.note == null || (d.note is string && d.note.size() <= 500))
+        && d.status == 'PENDING'
+        && d.messenger_psid == null
+        && d.slot_id == d.booking_date + '_' + d.booking_time
+        && d.lookup_key is string
+        && d.lookup_key.matches('^[a-f0-9]{64}$')
+        && d.created_at == request.time
+        && d.updated_at == request.time
+        && d.confirmed_at == null
+        && slot.data.booking_code == bookingCode
+        && slot.data.slot_id == d.slot_id;
+    }
+
+    function validSlotCreate(slotId) {
+      let d = request.resource.data;
+      let booking = getAfter(
+        /databases/$(database)/documents/bookings/$(d.booking_code)
+      );
+
+      return d.keys().hasOnly([
+          'slot_id',
+          'booking_code',
+          'booking_date',
+          'booking_time',
+          'status',
+          'created_at'
+        ])
+        && d.keys().hasAll([
+          'slot_id',
+          'booking_code',
+          'booking_date',
+          'booking_time',
+          'status',
+          'created_at'
+        ])
+        && d.slot_id == slotId
+        && d.booking_code is string
+        && d.booking_code.matches('^ATN-[0-9]{6}-[A-Z0-9]{8}$')
+        && d.booking_date is string
+        && d.booking_date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.booking_time is string
+        && d.booking_time.matches('^(09:30|1[0-9]:(00|30)|20:(00|30))$')
+        && d.slot_id == d.booking_date + '_' + d.booking_time
+        && d.status == 'HELD'
+        && d.created_at == request.time
+        && booking.data.slot_id == slotId
+        && booking.data.booking_code == d.booking_code;
+    }
+
+    function validPublicCreate(lookupId) {
+      let d = request.resource.data;
+      let booking = getAfter(
+        /databases/$(database)/documents/bookings/$(d.booking_code)
+      );
+
+      return d.keys().hasOnly([
+          'lookup_key',
+          'booking_code',
+          'customer_name',
+          'service',
+          'booking_date',
+          'booking_time',
+          'note',
+          'status',
+          'created_at',
+          'updated_at'
+        ])
+        && d.keys().hasAll([
+          'lookup_key',
+          'booking_code',
+          'customer_name',
+          'service',
+          'booking_date',
+          'booking_time',
+          'note',
+          'status',
+          'created_at',
+          'updated_at'
+        ])
+        && d.lookup_key == lookupId
+        && d.lookup_key is string
+        && d.lookup_key.matches('^[a-f0-9]{64}$')
+        && d.booking_code is string
+        && d.booking_code.matches('^ATN-[0-9]{6}-[A-Z0-9]{8}$')
+        && d.customer_name is string
+        && d.customer_name.size() >= 2
+        && d.customer_name.size() <= 100
+        && d['service'] is string
+        && d['service'].size() >= 2
+        && d['service'].size() <= 120
+        && d.booking_date is string
+        && d.booking_date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.booking_time is string
+        && d.booking_time.matches('^([01][0-9]|2[0-3]):(00|30)$')
+        && (d.note == null || (d.note is string && d.note.size() <= 500))
+        && d.status == 'PENDING'
+        && d.created_at == request.time
+        && d.updated_at == request.time
+        && booking.data.lookup_key == lookupId
+        && booking.data.booking_code == d.booking_code;
+    }
+
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
+    match /bookings/{bookingCode} {
+      allow create: if validBookingCreate(bookingCode);
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /bookingSlots/{slotId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if validSlotCreate(slotId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /bookingPublic/{lookupId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if validPublicCreate(lookupId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
