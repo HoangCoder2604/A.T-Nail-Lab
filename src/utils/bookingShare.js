@@ -70,16 +70,7 @@ export function buildAdminStatusReply(booking, status) {
   return '';
 }
 
-export async function copyBookingText(text) {
-  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Tiếp tục dùng phương án tương thích với trình duyệt cũ/chặn Clipboard API.
-    }
-  }
-
+function copyWithSelection(text) {
   if (typeof document === 'undefined') return false;
 
   let textarea;
@@ -97,6 +88,19 @@ export async function copyBookingText(text) {
   } finally {
     textarea?.remove();
   }
+}
+
+export async function copyBookingText(text) {
+  const value = String(text || '');
+  const clipboardPromise = typeof navigator !== 'undefined' && navigator.clipboard?.writeText
+    ? navigator.clipboard.writeText(value).then(() => true).catch(() => false)
+    : Promise.resolve(false);
+
+  // Chạy fallback đồng bộ ngay trong thao tác chạm/click. Mobile thường thu hồi
+  // quyền clipboard ngay sau khi code đi qua một lệnh await.
+  const selectionCopied = copyWithSelection(value);
+  const clipboardCopied = await clipboardPromise;
+  return clipboardCopied || selectionCopied;
 }
 
 export function saveLastBooking(booking) {

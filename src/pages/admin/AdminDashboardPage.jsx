@@ -191,14 +191,20 @@ export default function AdminDashboardPage() {
     setBusyId(booking.id);
     setNotice('');
 
+    // Gọi clipboard ngay trong sự kiện chạm/click để Safari và Chrome mobile
+    // vẫn xem đây là hành động trực tiếp của người dùng.
+    const replyText = buildAdminStatusReply({ ...booking, status }, status);
+    const copyPromise = replyText
+      ? copyBookingText(replyText)
+      : Promise.resolve(false);
+
     try {
       const updated = await updateBookingStatus(booking.id, status);
 
       // onSnapshot sẽ cập nhật lại danh sách; update local ngay để UI phản hồi tức thì.
       setBookings((current) => current.map((item) => item.id === booking.id ? updated : item));
 
-      const replyText = buildAdminStatusReply(updated, status);
-      const copied = replyText ? await copyBookingText(replyText) : false;
+      const copied = await copyPromise;
 
       setNotice(
         copied

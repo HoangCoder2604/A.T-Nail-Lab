@@ -189,6 +189,22 @@
   line-height:1.6;
 }
 
+.booking-success-instruction{
+  padding:16px 18px;
+  border:1px solid #e2cec5;
+  border-radius:14px;
+  background:#fff4ef;
+  color:#5f4b45;
+  font-size:15px;
+  font-weight:500;
+  line-height:1.7;
+}
+
+.booking-success-instruction strong{
+  color:#9b5d58;
+  font-size:16px;
+}
+
 .lookup-page{
   min-height:100vh;
   padding:54px 20px;

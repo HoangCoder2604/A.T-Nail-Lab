@@ -51,7 +51,7 @@ export default function BookingSuccessModal({ booking, onClose }) {
           </button>
         </div>
 
-        <p className="booking-success-note">
+        <p className="booking-success-note booking-success-instruction">
           {booking.copied ? 'Thông tin đặt lịch đã được sao chép.' : 'Nếu thông tin chưa được sao chép, hãy bấm “Sao chép lại”.'} Khi Messenger mở, hãy <strong>Dán → Gửi</strong> cho A.T Nail Lab. Tiệm sẽ đối chiếu mã lịch và phản hồi cho bạn.
         </p>
         {copyState && <p className="booking-success-note">{copyState}</p>}
