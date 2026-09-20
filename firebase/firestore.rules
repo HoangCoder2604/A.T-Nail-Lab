@@ -58,10 +58,13 @@ service cloud.firestore {
         && d.customer_name.size() <= 100
         && d.phone is string
         && d.phone.matches('^[0-9]{9,12}$')
-        && (d.email == null || d.email is string)
+        && (
+          d.email == null
+          || (d.email is string && d.email.size() <= 150)
+        )
         && d['service'] is string
         && d['service'].size() >= 2
-        && d['service'].size() <= 120
+        && d['service'].size() <= 500
         && d.booking_date is string
         && d.booking_date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.booking_time is string
@@ -75,35 +78,41 @@ service cloud.firestore {
         && d.created_at == request.time
         && d.updated_at == request.time
         && d.confirmed_at == null
-        && slot.data.booking_code == bookingCode
+        && slot.data.booking_codes is list
+        && slot.data.booking_codes.hasAny([bookingCode])
         && slot.data.slot_id == d.slot_id;
     }
 
     function validSlotCreate(slotId) {
       let d = request.resource.data;
+      let bookingCode = d.booking_codes[0];
       let booking = getAfter(
-        /databases/$(database)/documents/bookings/$(d.booking_code)
+        /databases/$(database)/documents/bookings/$(bookingCode)
       );
 
       return d.keys().hasOnly([
           'slot_id',
-          'booking_code',
+          'booking_codes',
           'booking_date',
           'booking_time',
           'status',
-          'created_at'
+          'created_at',
+          'updated_at'
         ])
         && d.keys().hasAll([
           'slot_id',
-          'booking_code',
+          'booking_codes',
           'booking_date',
           'booking_time',
           'status',
-          'created_at'
+          'created_at',
+          'updated_at'
         ])
         && d.slot_id == slotId
-        && d.booking_code is string
-        && d.booking_code.matches('^ATN-[0-9]{6}-[A-Z0-9]{8}$')
+        && d.booking_codes is list
+        && d.booking_codes.size() == 1
+        && bookingCode is string
+        && bookingCode.matches('^ATN-[0-9]{6}-[A-Z0-9]{8}$')
         && d.booking_date is string
         && d.booking_date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.booking_time is string
@@ -111,8 +120,65 @@ service cloud.firestore {
         && d.slot_id == d.booking_date + '_' + d.booking_time
         && d.status == 'HELD'
         && d.created_at == request.time
+        && d.updated_at == request.time
         && booking.data.slot_id == slotId
-        && booking.data.booking_code == d.booking_code;
+        && booking.data.booking_code == bookingCode;
+    }
+
+    function validSlotUpdate(slotId) {
+      let d = request.resource.data;
+      let old = resource.data;
+      let newBookingCode = d.booking_codes[1];
+      let booking = getAfter(
+        /databases/$(database)/documents/bookings/$(newBookingCode)
+      );
+
+      return d.keys().hasOnly([
+          'slot_id',
+          'booking_codes',
+          'booking_date',
+          'booking_time',
+          'status',
+          'created_at',
+          'updated_at'
+        ])
+        && d.keys().hasAll([
+          'slot_id',
+          'booking_codes',
+          'booking_date',
+          'booking_time',
+          'status',
+          'created_at',
+          'updated_at'
+        ])
+        && d.slot_id == slotId
+        && d.slot_id == old.slot_id
+        && d.booking_date == old.booking_date
+        && d.booking_time == old.booking_time
+        && d.status == 'HELD'
+        && d.created_at == old.created_at
+        && d.updated_at == request.time
+        && d.booking_codes is list
+        && d.booking_codes.size() == 2
+        && (
+          (
+            old.keys().hasAll(['booking_codes'])
+            && old.booking_codes is list
+            && old.booking_codes.size() == 1
+            && d.booking_codes[0] == old.booking_codes[0]
+          )
+          ||
+          (
+            old.keys().hasAll(['booking_code'])
+            && old.booking_code is string
+            && d.booking_codes[0] == old.booking_code
+          )
+        )
+        && newBookingCode is string
+        && newBookingCode.matches('^ATN-[0-9]{6}-[A-Z0-9]{8}$')
+        && newBookingCode != d.booking_codes[0]
+        && booking.data.slot_id == slotId
+        && booking.data.booking_code == newBookingCode;
     }
 
     function validPublicCreate(lookupId) {
@@ -155,7 +221,7 @@ service cloud.firestore {
         && d.customer_name.size() <= 100
         && d['service'] is string
         && d['service'].size() >= 2
-        && d['service'].size() <= 120
+        && d['service'].size() <= 500
         && d.booking_date is string
         && d.booking_date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.booking_time is string
@@ -182,7 +248,8 @@ service cloud.firestore {
       allow get: if true;
       allow list: if false;
       allow create: if validSlotCreate(slotId);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || validSlotUpdate(slotId);
+      allow delete: if isAdmin();
     }
 
     match /bookingPublic/{lookupId} {

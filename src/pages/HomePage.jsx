@@ -153,7 +153,7 @@ export default function HomePage() {
         <Booking />
       </main>
       <Footer />
-      <a className="mobile-sticky" href="#booking">Đặt lịch ngay • -5%</a>
+      <a className="mobile-sticky" href="#booking">Đặt lịch ngay</a>
     </>
   );
 }

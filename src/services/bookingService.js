@@ -11,7 +11,6 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
-  writeBatch,
 } from 'firebase/firestore';
 import {
   firebaseAuth,
@@ -28,9 +27,10 @@ export const BOOKING_STATUS = {
 };
 
 export const BOOKING_MIN_GAP_MINUTES = 30;
+export const BOOKING_CAPACITY_PER_WINDOW = 2;
 
 export class BookingConflictError extends Error {
-  constructor(message = 'Khung giờ này đã có lịch gần đó. Vui lòng chọn giờ khác cách ít nhất 30 phút.') {
+  constructor(message = 'Khoảng thời gian này đã đủ 2 khách. Vui lòng chọn giờ khác.') {
     super(message);
     this.name = 'BookingConflictError';
     this.code = 'BOOKING_TIME_CONFLICT';
@@ -53,9 +53,13 @@ function makeSlotId(date, time) {
   return `${date}_${normalizeTime(time)}`;
 }
 
-function getNearbySlotIds(date, time) {
+function timeToMinutes(time) {
   const [hour, minute] = normalizeTime(time).split(':').map(Number);
-  const currentMinutes = hour * 60 + minute;
+  return hour * 60 + minute;
+}
+
+function getNearbySlotIds(date, time) {
+  const currentMinutes = timeToMinutes(time);
   const ids = [];
 
   for (let offset = -(BOOKING_MIN_GAP_MINUTES - 1); offset < BOOKING_MIN_GAP_MINUTES; offset += 1) {
@@ -99,6 +103,14 @@ export function generateBookingCode() {
 
 function validateBookingInput(formData) {
   if (!formData.name?.trim()) throw new Error('Vui lòng nhập họ và tên.');
+
+  if (!formData.service?.trim()) {
+    throw new Error('Vui lòng chọn ít nhất một dịch vụ.');
+  }
+
+  if (formData.service.length > 500) {
+    throw new Error('Danh sách dịch vụ đã chọn không hợp lệ.');
+  }
 
   const phone = normalizePhone(formData.phone);
   if (phone.length < 9 || phone.length > 12) {
@@ -155,18 +167,47 @@ export async function createBooking(formData) {
   const publicRef = doc(firestoreDb, 'bookingPublic', lookupKey);
 
   await runTransaction(firestoreDb, async (transaction) => {
-    // Đọc mọi giờ bắt đầu nằm trong khoảng ±29 phút. Nếu một giao dịch đồng thời
-    // tạo bất kỳ document nào vừa được đọc, Firestore sẽ retry transaction và phát
-    // hiện xung đột. Hai lịch cách đúng 30 phút vẫn được chấp nhận.
+    // Mỗi document đại diện cho một phút bắt đầu và chứa tối đa 2 mã lịch.
+    // Sau khi thêm lịch mới, không được có 3 lượt bắt đầu nằm trong cùng một
+    // khoảng dưới 30 phút. Mốc cách đúng 30 phút được chấp nhận.
     const nearbySlotRefs = getNearbySlotIds(formData.date, bookingTime)
       .map((nearbySlotId) => doc(firestoreDb, 'bookingSlots', nearbySlotId));
     const nearbySlotSnapshots = await Promise.all(
       nearbySlotRefs.map((nearbySlotRef) => transaction.get(nearbySlotRef)),
     );
 
-    if (nearbySlotSnapshots.some((snapshot) => snapshot.exists())) {
+    const candidateMinute = timeToMinutes(bookingTime);
+    const occupiedMinutes = [candidateMinute];
+
+    nearbySlotSnapshots.forEach((snapshot) => {
+      if (!snapshot.exists()) return;
+      const slot = snapshot.data();
+      const bookingCodes = Array.isArray(slot.booking_codes)
+        ? slot.booking_codes
+        : (slot.booking_code ? [slot.booking_code] : []);
+      const startMinute = timeToMinutes(slot.booking_time);
+      bookingCodes.forEach(() => occupiedMinutes.push(startMinute));
+    });
+
+    occupiedMinutes.sort((left, right) => left - right);
+    const exceedsCapacity = occupiedMinutes.some((minute, index) => (
+      index >= BOOKING_CAPACITY_PER_WINDOW
+      && minute - occupiedMinutes[index - BOOKING_CAPACITY_PER_WINDOW] < BOOKING_MIN_GAP_MINUTES
+    ));
+
+    if (exceedsCapacity) {
       throw new BookingConflictError();
     }
+
+    const currentSlotSnapshot = nearbySlotSnapshots.find(
+      (snapshot) => snapshot.ref.id === slotId,
+    );
+    const currentSlot = currentSlotSnapshot?.exists() ? currentSlotSnapshot.data() : null;
+    const currentBookingCodes = currentSlot
+      ? (Array.isArray(currentSlot.booking_codes)
+          ? currentSlot.booking_codes
+          : [currentSlot.booking_code].filter(Boolean))
+      : [];
 
     transaction.set(bookingRef, {
       ...booking,
@@ -177,11 +218,12 @@ export async function createBooking(formData) {
 
     transaction.set(slotRef, {
       slot_id: slotId,
-      booking_code: bookingCode,
+      booking_codes: [...currentBookingCodes, bookingCode],
       booking_date: booking.booking_date,
       booking_time: booking.booking_time,
       status: 'HELD',
-      created_at: serverTimestamp(),
+      created_at: currentSlot?.created_at || serverTimestamp(),
+      updated_at: serverTimestamp(),
     });
 
     transaction.set(publicRef, {
@@ -333,36 +375,64 @@ export async function updateBookingStatus(id, status) {
   if (!firestoreDb) throw new Error('Firebase chưa được cấu hình.');
 
   const bookingRef = doc(firestoreDb, 'bookings', id);
-  const bookingSnap = await getDoc(bookingRef);
-  if (!bookingSnap.exists()) throw new Error('Không tìm thấy booking.');
+  let current;
 
-  const current = { id: bookingSnap.id, ...bookingSnap.data() };
-  const batch = writeBatch(firestoreDb);
-  const patch = {
-    status,
-    updated_at: serverTimestamp(),
-  };
+  await runTransaction(firestoreDb, async (transaction) => {
+    const bookingSnap = await transaction.get(bookingRef);
+    if (!bookingSnap.exists()) throw new Error('Không tìm thấy booking.');
 
-  if (status === BOOKING_STATUS.CONFIRMED) {
-    patch.confirmed_at = serverTimestamp();
-  }
+    current = { id: bookingSnap.id, ...bookingSnap.data() };
+    let slotSnapshot = null;
+    let slotRef = null;
 
-  batch.update(bookingRef, patch);
+    if (status === BOOKING_STATUS.CANCELLED && current.slot_id) {
+      slotRef = doc(firestoreDb, 'bookingSlots', current.slot_id);
+      slotSnapshot = await transaction.get(slotRef);
+    }
 
-  if (current.lookup_key) {
-    batch.set(
-      doc(firestoreDb, 'bookingPublic', current.lookup_key),
-      { status, updated_at: serverTimestamp() },
-      { merge: true },
-    );
-  }
+    const patch = {
+      status,
+      updated_at: serverTimestamp(),
+    };
 
-  // Hủy lịch -> nhả slot để người khác có thể đặt lại.
-  if (status === BOOKING_STATUS.CANCELLED && current.slot_id) {
-    batch.delete(doc(firestoreDb, 'bookingSlots', current.slot_id));
-  }
+    if (status === BOOKING_STATUS.CONFIRMED) {
+      patch.confirmed_at = serverTimestamp();
+    }
 
-  await batch.commit();
+    transaction.update(bookingRef, patch);
+
+    if (current.lookup_key) {
+      transaction.set(
+        doc(firestoreDb, 'bookingPublic', current.lookup_key),
+        { status, updated_at: serverTimestamp() },
+        { merge: true },
+      );
+    }
+
+    // Hủy lịch -> chỉ gỡ mã này khỏi slot. Transaction tránh ghi đè nếu đúng lúc
+    // một khách khác đang được thêm vào cùng mốc giờ.
+    if (slotRef && slotSnapshot?.exists()) {
+      const slotData = slotSnapshot.data();
+      const bookingCodes = Array.isArray(slotData.booking_codes)
+        ? slotData.booking_codes
+        : [slotData.booking_code].filter(Boolean);
+      const remainingCodes = bookingCodes.filter((code) => code !== current.booking_code);
+
+      if (remainingCodes.length > 0) {
+        transaction.set(slotRef, {
+          slot_id: current.slot_id,
+          booking_codes: remainingCodes,
+          booking_date: current.booking_date,
+          booking_time: current.booking_time,
+          status: 'HELD',
+          created_at: slotData.created_at,
+          updated_at: serverTimestamp(),
+        });
+      } else {
+        transaction.delete(slotRef);
+      }
+    }
+  });
 
   return {
     ...current,

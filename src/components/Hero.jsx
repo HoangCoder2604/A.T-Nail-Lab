@@ -1,5 +1,4 @@
-import { ArrowDown, ArrowRight, BadgePercent, Sparkles } from 'lucide-react';
-import { salon } from '../data/salon';
+import { ArrowDown, ArrowRight, Sparkles } from 'lucide-react';
 
 export default function Hero(){
   return <section className="hero" id="home">
@@ -14,7 +13,6 @@ export default function Hero(){
         <a className="btn primary magnetic" href="#booking">Đặt lịch <ArrowRight size={17}/></a>
         <a className="btn ghost" href="#gallery">Xem mẫu nail</a>
       </div>
-      <div className="hero-promo reveal"><BadgePercent size={18}/><span>{salon.promo}</span></div>
       <a className="hero-scroll reveal" href="#services"><span>SCROLL TO EXPLORE</span><ArrowDown size={15}/></a>
     </div>
 

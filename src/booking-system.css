@@ -14,7 +14,7 @@
   display:flex;
   flex-wrap:wrap;
   gap:10px;
-  margin:-14px 0 28px;
+  margin:28px 0;
 }
 
 .booking-trust-row span{
@@ -35,6 +35,91 @@
   font-size:12px;
   line-height:1.65;
 }
+
+.contact-channel{
+  display:grid;
+  grid-column:1/-1;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:0;
+  padding:0;
+  border:0;
+}
+
+.service-choices{
+  display:grid;
+  grid-column:1/-1;
+  gap:14px;
+  margin:0;
+  padding:18px;
+  border:1px solid rgba(70,52,62,.16);
+  border-radius:16px;
+  background:#fffaf7;
+}
+
+.service-choices-title{
+  margin:0 0 2px;
+  color:#5c4a55;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.4;
+}
+
+.service-choices > p{
+  margin:0;
+  color:#8a7c75;
+  font-size:11px;
+  line-height:1.5;
+}
+
+.service-choice-group{display:grid;gap:8px}
+.service-choice-group > strong{color:#8c685b;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.service-choice-group > div{display:flex;flex-wrap:wrap;gap:8px}
+.service-choice-group label{
+  display:inline-flex;
+  grid-template-columns:none;
+  align-items:center;
+  gap:7px;
+  min-height:38px;
+  padding:8px 11px;
+  border:1px solid #e2d6cf;
+  border-radius:999px;
+  background:white;
+  color:#675954;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.service-choice-group input{width:15px!important;min-height:15px!important;padding:0!important;margin:0}
+.service-choice-group label:has(input:checked){border-color:#b99286;background:#f5e5de;color:#704b43;box-shadow:0 0 0 2px rgba(185,146,134,.1)}
+
+.contact-channel legend{
+  grid-column:1/-1;
+  margin-bottom:10px;
+  color:#5c4a55;
+  font-size:14px;
+  font-weight:600;
+}
+
+.contact-channel label{
+  display:grid;
+  grid-template-columns:auto auto 1fr;
+  align-items:center;
+  gap:10px;
+  min-height:66px;
+  padding:12px 14px;
+  border:1px solid #ddd0c8;
+  border-radius:14px;
+  background:#fffaf7;
+  cursor:pointer;
+}
+
+.contact-channel input{width:16px!important;min-height:16px!important;padding:0!important}
+.contact-channel label:has(input:checked){border-color:#b99286;background:#fff3ed;box-shadow:0 0 0 3px rgba(185,146,134,.1)}
+.contact-channel span{display:grid;gap:2px}
+.contact-channel strong{font-size:13px}
+.contact-channel small{color:#8a7c75;font-size:10px;font-weight:500}
 
 .demo-mode-banner,
 .admin-demo-banner{
@@ -165,7 +250,7 @@
 
 .booking-success-actions{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(3,1fr);
   gap:10px;
   margin-top:20px;
 }
@@ -363,9 +448,11 @@
 .lookup-note{color:#6d615b;font-size:13px;line-height:1.6}
 
 @media(max-width:720px){
+  .booking-trust-row{margin:22px 0 26px}
   .booking-success-card{padding:30px 20px}
   .booking-success-summary{grid-template-columns:1fr}
   .booking-success-actions{grid-template-columns:1fr}
+  .contact-channel{grid-template-columns:1fr}
   .lookup-card{padding:28px 20px}
   .lookup-form{grid-template-columns:1fr}
   .lookup-details{grid-template-columns:1fr}

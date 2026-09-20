@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  CalendarDays,
   CheckCircle2,
+  Instagram,
   LoaderCircle,
   MessageCircle,
   Phone,
@@ -23,23 +23,51 @@ import {
   saveLastBooking,
 } from '../utils/bookingShare';
 
+const serviceGroups = [
+  {
+    label: 'Cơ bản',
+    items: [
+      'Cắt da + dũa form',
+      'Cắt da nam',
+      'Cứng móng thường',
+      'Cứng móng tạo cầu / fill',
+      'Phá sơn gel',
+      'Phá móng up / đắp',
+      'Che khuyết điểm móng',
+    ],
+  },
+  {
+    label: 'Sơn',
+    items: ['Sơn gel', 'Sơn thạch', 'Mắt mèo', 'Ombre / Tráng gương', 'French', 'Sơn mix màu'],
+  },
+  {
+    label: 'Up móng',
+    items: ['Up móng base', 'Up móng 6in1', 'Dual form', 'Đắp gel', 'Fill up / gel'],
+  },
+  {
+    label: 'Design',
+    items: ['Vẽ', 'Ẩn nhũ', 'Đính đá', 'Charm', 'Nặn thú - hoa'],
+  },
+];
+
 function todayISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
 }
 
-function prepareMessengerTab() {
+function prepareContactTab(channel) {
   const tab = window.open('', '_blank');
   if (!tab) return null;
 
   try {
-    tab.document.title = 'A.T Nail Lab • Đang mở Messenger';
+    const channelName = channel === 'instagram' ? 'Instagram' : 'Messenger';
+    tab.document.title = `A.T Nail Lab • Đang mở ${channelName}`;
     tab.document.body.innerHTML = `
       <div style="min-height:100vh;display:grid;place-items:center;background:#f7f3ef;color:#362b27;font-family:system-ui,sans-serif;padding:24px;text-align:center">
         <div>
           <div style="font-family:Georgia,serif;font-size:38px;margin-bottom:10px">A.T Nail Lab</div>
-          <p style="margin:0;color:#756d68;line-height:1.7">Đang hoàn tất lịch hẹn của bạn…<br/>Khi Messenger mở, hãy dán thông tin và gửi cho A.T Nail Lab.</p>
+          <p style="margin:0;color:#756d68;line-height:1.7">Đang hoàn tất lịch hẹn của bạn…<br/>Khi ${channelName} mở, hãy dán thông tin và gửi cho A.T Nail Lab.</p>
         </div>
       </div>`;
   } catch {
@@ -55,12 +83,24 @@ export default function Booking() {
   const [loading, setLoading] = useState(false);
   const [booking, setBooking] = useState(null);
   const [lastBooking, setLastBooking] = useState(readLastBooking);
+  const [selectedServices, setSelectedServices] = useState(['Sơn gel']);
   const minDate = useMemo(todayISO, []);
 
   const removeLastBooking = () => {
     clearLastBooking();
     setLastBooking(null);
     setBooking(null);
+  };
+
+  const toggleService = (service) => {
+    setSelectedServices((current) => {
+      if (current.includes(service)) {
+        return current.filter((item) => item !== service);
+      }
+
+      setStatus('');
+      return [...current, service];
+    });
   };
 
   const submit = async (event) => {
@@ -70,6 +110,14 @@ export default function Booking() {
     const form = event.currentTarget;
     const data = Object.fromEntries(new FormData(form).entries());
 
+    if (selectedServices.length === 0) {
+      setStatusType('error');
+      setStatus('Vui lòng chọn ít nhất một dịch vụ.');
+      return;
+    }
+
+    data.service = selectedServices.join(' + ');
+
     // Honeypot chống bot cơ bản.
     if (data.website) return;
 
@@ -77,19 +125,24 @@ export default function Booking() {
     setStatusType('info');
     setStatus('Đang kiểm tra khung giờ và hoàn tất lịch hẹn…');
 
+    const contactChannel = data.contact_channel === 'instagram' ? 'instagram' : 'messenger';
+    const contactUrl = contactChannel === 'instagram'
+      ? salon.instagramMessageUrl
+      : salon.messengerUrl;
+
     // Mở tab ngay trong user gesture để giảm khả năng Safari/Chrome chặn popup.
-    // Tab chỉ được chuyển sang Messenger SAU KHI Firebase commit thành công.
-    const messengerTab = prepareMessengerTab();
+    // Tab chỉ được chuyển sang kênh đã chọn SAU KHI Firebase commit thành công.
+    const contactTab = prepareContactTab(contactChannel);
 
     let created;
     try {
       created = await createBooking(data);
     } catch (error) {
-      if (messengerTab && !messengerTab.closed) messengerTab.close();
+      if (contactTab && !contactTab.closed) contactTab.close();
 
       if (error instanceof BookingConflictError || error?.code === 'BOOKING_TIME_CONFLICT') {
         setStatusType('error');
-        setStatus('Khung giờ này đã có khách đặt. Hãy chọn giờ khác cách ít nhất 30 phút.');
+        setStatus('Khoảng thời gian này đã đủ 2 khách. Vui lòng chọn giờ khác.');
       } else if (/^(Vui lòng|A\.T Nail Lab)/.test(error?.message || '')) {
         setStatusType('error');
         setStatus(error.message);
@@ -120,12 +173,13 @@ export default function Booking() {
         : `Đặt lịch thành công • ${created.booking_code} • Hãy bấm “Sao chép lại”`,
     );
     form.reset();
+    setSelectedServices(['Sơn gel']);
     setLoading(false);
 
-    // Cho modal thành công kịp render trước khi chuyển tab phụ sang Messenger.
+    // Cho modal thành công kịp render trước khi chuyển tab phụ sang kênh đã chọn.
     window.setTimeout(() => {
-      if (messengerTab && !messengerTab.closed) {
-        messengerTab.location.replace(salon.messengerUrl);
+      if (contactTab && !contactTab.closed) {
+        contactTab.location.replace(contactUrl);
       }
     }, 450);
   };
@@ -146,8 +200,6 @@ export default function Booking() {
         <div className="booking-copy reveal">
           <p className="eyebrow">BOOK YOUR APPOINTMENT</p>
           <h2>Đặt lịch trước,<br /><em>thảnh thơi hơn.</em></h2>
-          <p className="promo-line"><CalendarDays /> {salon.promo}</p>
-
           {lastBooking && (
             <div className="booking-recovery">
               <div>
@@ -155,7 +207,7 @@ export default function Booking() {
                 <strong>{lastBooking.booking_code}</strong>
               </div>
               <div className="booking-recovery-actions">
-                <button type="button" onClick={() => setBooking(lastBooking)}>Xem lại mã & gửi Messenger</button>
+                <button type="button" onClick={() => setBooking(lastBooking)}>Xem lại mã & chọn kênh nhắn</button>
                 <button className="remove" type="button" onClick={removeLastBooking}>Xóa khỏi thiết bị</button>
               </div>
             </div>
@@ -163,7 +215,7 @@ export default function Booking() {
 
           <div className="booking-trust-row">
             <span><CheckCircle2 size={15} /> Xác nhận yêu cầu đặt lịch nhanh chóng</span>
-            <span><ShieldCheck size={15} /> Giữ riêng khung giờ bạn đã chọn</span>
+            <span><ShieldCheck size={15} /> Mỗi khoảng 30 phút nhận tối đa 2 khách</span>
           </div>
 
           <form onSubmit={submit} className="booking-form">
@@ -193,19 +245,27 @@ export default function Booking() {
                 />
               </label>
 
-              <label>
-                Dịch vụ
-                <select name="service" defaultValue="Sơn gel">
-                  <option>Sơn gel</option>
-                  <option>Sơn thạch</option>
-                  <option>Mắt mèo</option>
-                  <option>Ombre / Tráng gương</option>
-                  <option>French</option>
-                  <option>Up móng</option>
-                  <option>Nail Art / Trang trí</option>
-                  <option>Chăm sóc / Cắt da</option>
-                </select>
-              </label>
+              <fieldset className="service-choices full" aria-label="Dịch vụ">
+                <div className="service-choices-title">Dịch vụ</div>
+                <p>Bạn có thể chọn một hoặc nhiều dịch vụ.</p>
+                {serviceGroups.map((group) => (
+                  <div className="service-choice-group" key={group.label}>
+                    <strong>{group.label}</strong>
+                    <div>
+                      {group.items.map((service) => (
+                        <label key={service}>
+                          <input
+                            type="checkbox"
+                            checked={selectedServices.includes(service)}
+                            onChange={() => toggleService(service)}
+                          />
+                          <span>{service}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </fieldset>
 
               <label>
                 Ngày
@@ -233,16 +293,30 @@ export default function Booking() {
                   placeholder="Mẫu mong muốn, màu sắc, độ dài móng..."
                 />
               </label>
+
+              <fieldset className="contact-channel full">
+                <legend>Chọn kênh nhắn tin sau khi đặt lịch</legend>
+                <label>
+                  <input type="radio" name="contact_channel" value="messenger" defaultChecked />
+                  <MessageCircle size={18} />
+                  <span><strong>Messenger</strong><small>A.T Nail Lab</small></span>
+                </label>
+                <label>
+                  <input type="radio" name="contact_channel" value="instagram" />
+                  <Instagram size={18} />
+                  <span><strong>Instagram</strong><small>@{salon.instagram}</small></span>
+                </label>
+              </fieldset>
             </div>
 
             <p className="booking-slot-note">
-              Nhận lịch từ {bookingHours.open} đến {bookingHours.close}. Bạn có thể chọn từng phút; mỗi lịch cần cách lịch đã đặt ít nhất 30 phút.
+              Nhận lịch từ {bookingHours.open} đến {bookingHours.close}. Tiệm có 2 thợ nên mỗi khoảng 30 phút có thể nhận tối đa 2 khách.
             </p>
 
             <button className="btn primary full-btn magnetic" type="submit" disabled={loading}>
               {loading
                 ? <>Đang đặt lịch… <LoaderCircle size={17} /></>
-                : <>Đặt lịch & mở Messenger <MessageCircle size={17} /></>}
+                : <>Đặt lịch & mở kênh nhắn tin <MessageCircle size={17} /></>}
             </button>
 
             {status && (
@@ -255,7 +329,7 @@ export default function Booking() {
             )}
 
             <p className="booking-helper-text">
-              Thông tin sẽ được tự động sao chép. Khi Messenger mở, bạn chỉ cần dán và gửi cho A.T Nail Lab.
+              Thông tin sẽ được tự động sao chép. Khi Messenger hoặc Instagram mở, bạn chỉ cần dán và gửi cho A.T Nail Lab.
             </p>
           </form>
 

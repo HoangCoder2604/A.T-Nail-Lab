@@ -190,13 +190,14 @@ img{display:block;width:100%;height:100%;object-fit:cover}
 
 /* ---------- booking ---------- */
 .booking-section{display:grid;grid-template-columns:1fr 1fr;background:#f1ebe7;overflow:hidden}
-.booking-image{min-height:780px;position:relative}
-.booking-image>img{position:absolute;inset:0}
-.booking-image-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(30,24,22,.02),rgba(30,24,22,.45))}
-.booking-image-caption{position:absolute;left:34px;bottom:34px;color:#fff}
+.booking-image{position:relative;align-self:stretch;height:auto;min-height:780px;overflow:hidden;background:#777b79;isolation:isolate}
+.booking-image::before{content:'';position:absolute;z-index:0;inset:-28px;background:url('/images/salon-brand.jpg') center/cover no-repeat;filter:blur(20px);transform:scale(1.06);opacity:.72}
+.booking-image>img{position:absolute;z-index:1;inset:0;object-fit:contain;object-position:center;background:rgba(28,31,30,.2)}
+.booking-image-shade{position:absolute;z-index:2;inset:0;background:linear-gradient(180deg,rgba(30,24,22,.04),rgba(30,24,22,.46))}
+.booking-image-caption{position:absolute;z-index:3;left:34px;bottom:34px;color:#fff}
 .booking-image-caption span{font-family:'Playfair Display',serif;font-size:34px;letter-spacing:.04em}
 .booking-image-caption p{margin:5px 0 0;font-size:9px;letter-spacing:.25em}
-.booking-floating-chip{position:absolute;right:28px;top:28px;padding:11px 14px;border-radius:999px;background:rgba(255,255,255,.8);backdrop-filter:blur(12px);font-size:10px;letter-spacing:.12em;color:#6d5d57;box-shadow:0 12px 32px rgba(39,30,27,.08);animation:chipFloat 3.7s ease-in-out infinite}
+.booking-floating-chip{position:absolute;z-index:3;right:28px;top:28px;padding:11px 14px;border-radius:999px;background:rgba(255,255,255,.8);backdrop-filter:blur(12px);font-size:10px;letter-spacing:.12em;color:#6d5d57;box-shadow:0 12px 32px rgba(39,30,27,.08);animation:chipFloat 3.7s ease-in-out infinite}
 @keyframes chipFloat{50%{transform:translateY(7px)}}
 .booking-copy{padding:90px clamp(32px,6vw,90px);align-self:center}
 .promo-line{display:flex;align-items:center;gap:8px;color:#7b5f56;font-size:13px;margin:22px 0 30px}
@@ -260,7 +261,9 @@ img{display:block;width:100%;height:100%;object-fit:cover}
   .gallery-card.g5{grid-column:span 1}
   .about,.booking-section{grid-template-columns:1fr}
   .about-media,.booking-image{min-height:560px}
-  .booking-image{order:2}
+  .booking-image{order:2;position:relative;top:auto;align-self:stretch;height:auto}
+  .booking-image::before{display:none}
+  .booking-image>img{object-fit:cover;object-position:center 35%;background:transparent}
   .price-grid{grid-template-columns:1fr 1fr}
   .footer-row{grid-template-columns:1fr;justify-items:start}
   .footer-contact{justify-content:flex-start}

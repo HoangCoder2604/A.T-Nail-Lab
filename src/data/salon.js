@@ -16,11 +16,11 @@ export const salon = {
   hours: '09:30 – 20:30',
   instagram: 'a.t.naillab',
   instagramUrl: 'https://www.instagram.com/a.t.naillab/',
+  instagramMessageUrl: 'https://ig.me/m/a.t.naillab',
   facebookName: 'A.T Nail Lab',
   facebookUrl: 'https://www.facebook.com/profile.php?id=61584573756566',
   messengerUrl,
   
-  promo: 'Đặt lịch trước 1 ngày — giảm 5%',
   tagline: 'Beautiful nails. Brighter you.',
   note: 'Tiệm làm theo hình thức 1:1, ưu tiên sự thoải mái và trải nghiệm của khách.'
 };
@@ -36,42 +36,44 @@ export const priceGroups = [
   {
     name: 'Cơ bản',
     items: [
-      ['Cắt da + dũa form', '20'],
-      ['Cứng móng', '20'],
-      ['Cứng móng tạo cầu', '35'],
-      ['Phá móng gel', '20'],
-      ['Phá móng up/đắp', '30']
+      ['Cắt da + dũa form', '40'],
+      ['Cắt da nam', '50'],
+      ['Cứng móng thường', '20'],
+      ['Cứng móng tạo cầu / fill', '45–80'],
+      ['Phá sơn gel', '30'],
+      ['Phá móng up / đắp', '40'],
+      ['Che khuyết điểm móng', '20']
     ]
   },
   {
     name: 'Sơn',
     items: [
-      ['Sơn gel', '60'],
-      ['Sơn thạch', '70'],
-      ['Mắt mèo', '80'],
-      ['Ombre / Tráng gương', '90'],
+      ['Sơn gel', '100'],
+      ['Sơn thạch', '120'],
+      ['Mắt mèo', '150'],
+      ['Ombre / Tráng gương', '100'],
       ['French', '10–15'],
-      ['Mắt mèo / Tráng gương / Ombre + nền', '160']
+      ['Sơn mix màu', '10 / ngón']
     ]
   },
   {
     name: 'Up móng',
     items: [
-      ['Up móng base', '60'],
-      ['Up móng 6in1', '70'],
-      ['Dual form', '150–180'],
-      ['Đắp gel', '170–200'],
-      ['Fill móng up/gel', '50–100']
+      ['Up móng base', '100'],
+      ['Up móng 6in1', '120'],
+      ['Dual form', '240'],
+      ['Đắp gel', '200'],
+      ['Fill up / gel', '60–100']
     ]
   },
   {
-    name: 'Trang trí',
+    name: 'Design',
     items: [
-      ['Vẽ', '5–30'],
-      ['Ẩn nhũ', '5–10'],
-      ['Đính đá', '5–10'],
-      ['Charm', '10–30'],
-      ['Nặn thú, hoa', '15–30']
+      ['Vẽ', '5–30 / 1'],
+      ['Ẩn nhũ', '15–40 / 1'],
+      ['Đính đá', '7–35 / 1'],
+      ['Charm', '10–30 / 1'],
+      ['Nặn thú - hoa', '20–60 / 1']
     ]
   }
 ];
