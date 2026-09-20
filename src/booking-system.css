@@ -449,9 +449,29 @@
 
 @media(max-width:720px){
   .booking-trust-row{margin:22px 0 26px}
-  .booking-success-card{padding:30px 20px}
+  .booking-success-backdrop{
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    min-height:100dvh;
+    padding:12px 12px calc(22px + env(safe-area-inset-bottom));
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
+  .booking-success-card{
+    max-height:none;
+    margin:0;
+    padding:28px 18px 22px;
+    overflow:visible;
+    border-radius:22px;
+  }
+  .booking-success-card h3{font-size:34px}
+  .booking-success-lead{font-size:13px;line-height:1.6}
+  .booking-code-box{margin:20px 0 12px;padding:14px}
   .booking-success-summary{grid-template-columns:1fr}
   .booking-success-actions{grid-template-columns:1fr}
+  .booking-success-actions .btn{min-height:48px}
+  .booking-success-instruction{font-size:14px}
   .contact-channel{grid-template-columns:1fr}
   .lookup-card{padding:28px 20px}
   .lookup-form{grid-template-columns:1fr}
