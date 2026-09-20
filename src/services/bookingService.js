@@ -263,6 +263,43 @@ export async function checkBooking(bookingCode, phone) {
   return { id: snapshot.id, ...snapshot.data() };
 }
 
+export async function checkStoredBookingExists(booking) {
+  const bookingCode = String(booking?.booking_code || '').trim().toUpperCase();
+  const lookupKey = String(booking?.lookup_key || '').trim().toLowerCase();
+
+  if (!/^ATN-[0-9]{6}-[A-Z0-9]{8}$/.test(bookingCode)) return false;
+  if (!/^[a-f0-9]{64}$/.test(lookupKey)) return null;
+
+  try {
+    const response = await fetch('/api/check-booking-exists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingCode, lookupKey }),
+      cache: 'no-store',
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return result.exists === true;
+    }
+  } catch {
+    // `npm run dev` không chạy Vercel API. Sẽ thử document public ở dưới.
+  }
+
+  // Fallback khi chạy local hoặc API tạm thời không sẵn sàng. Không cần mở quyền
+  // đọc collection bookings và không xóa local nếu Firebase cũng không truy cập được.
+  if (!firestoreDb) return null;
+
+  try {
+    const publicSnapshot = await getDoc(
+      doc(firestoreDb, 'bookingPublic', lookupKey),
+    );
+    return publicSnapshot.exists();
+  } catch {
+    return null;
+  }
+}
+
 function waitForAuthUser() {
   if (!firebaseAuth) return Promise.resolve(null);
   if (firebaseAuth.currentUser) return Promise.resolve(firebaseAuth.currentUser);

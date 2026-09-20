@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   Instagram,
@@ -11,15 +11,18 @@ import {
 import { bookingHours, salon } from '../data/salon';
 import {
   BookingConflictError,
+  checkStoredBookingExists,
   createBooking,
   notifyAdminOfNewBooking,
 } from '../services/bookingService';
 import BookingSuccessModal from './BookingSuccessModal';
 import {
   buildBookingShareText,
-  clearLastBooking,
   copyBookingText,
-  readLastBooking,
+  isBookingExpired,
+  readSavedBookings,
+  removeSavedBooking,
+  replaceSavedBookings,
   saveLastBooking,
 } from '../utils/bookingShare';
 
@@ -82,14 +85,70 @@ export default function Booking() {
   const [statusType, setStatusType] = useState('');
   const [loading, setLoading] = useState(false);
   const [booking, setBooking] = useState(null);
-  const [lastBooking, setLastBooking] = useState(readLastBooking);
+  const [savedBookings, setSavedBookings] = useState(readSavedBookings);
   const [selectedServices, setSelectedServices] = useState(['Sơn gel']);
   const minDate = useMemo(todayISO, []);
+  const savedBookingSignature = savedBookings
+    .map((item) => `${item.booking_code}:${item.lookup_key || ''}`)
+    .join('|');
 
-  const removeLastBooking = () => {
-    clearLastBooking();
-    setLastBooking(null);
-    setBooking(null);
+  useEffect(() => {
+    if (savedBookings.length === 0) return undefined;
+
+    let active = true;
+    let checking = false;
+
+    const verifySavedBookings = async () => {
+      if (checking) return;
+      checking = true;
+
+      try {
+        const checks = await Promise.all(savedBookings.map(async (item) => {
+          if (isBookingExpired(item)) return { item, keep: false };
+          const exists = await checkStoredBookingExists(item);
+          return { item, keep: exists !== false };
+        }));
+        if (!active) return;
+
+        const keptBookings = checks.filter((result) => result.keep).map((result) => result.item);
+        if (keptBookings.length === savedBookings.length) return;
+
+        const removedCodes = new Set(
+          checks.filter((result) => !result.keep).map((result) => result.item.booking_code),
+        );
+        const normalized = replaceSavedBookings(keptBookings);
+        setSavedBookings(normalized);
+        setBooking((current) => (
+          removedCodes.has(current?.booking_code) ? null : current
+        ));
+      } finally {
+        checking = false;
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void verifySavedBookings();
+    };
+
+    void verifySavedBookings();
+    window.addEventListener('focus', verifySavedBookings);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const intervalId = window.setInterval(verifySavedBookings, 30_000);
+
+    return () => {
+      active = false;
+      window.removeEventListener('focus', verifySavedBookings);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.clearInterval(intervalId);
+    };
+  }, [savedBookingSignature]);
+
+  const removeBookingFromDevice = (bookingCode) => {
+    const updated = removeSavedBooking(bookingCode);
+    setSavedBookings(updated);
+    setBooking((current) => (
+      current?.booking_code === bookingCode ? null : current
+    ));
   };
 
   const toggleService = (service) => {
@@ -164,7 +223,7 @@ export default function Booking() {
     const savedBooking = { ...created, shareText, copied };
 
     saveLastBooking(savedBooking);
-    setLastBooking(savedBooking);
+    setSavedBookings(readSavedBookings());
     setBooking(savedBooking);
     setStatusType('success');
     setStatus(
@@ -200,15 +259,31 @@ export default function Booking() {
         <div className="booking-copy reveal">
           <p className="eyebrow">BOOK YOUR APPOINTMENT</p>
           <h2>Đặt lịch trước,<br /><em>thảnh thơi hơn.</em></h2>
-          {lastBooking && (
-            <div className="booking-recovery">
-              <div>
-                <span>Lịch gần nhất trên thiết bị này</span>
-                <strong>{lastBooking.booking_code}</strong>
+          {savedBookings.length > 0 && (
+            <div className="booking-history">
+              <div className="booking-history-heading">
+                <span>Các lịch đã lưu trên thiết bị này</span>
+                <small>Tự động xóa khi đã qua giờ hẹn</small>
               </div>
-              <div className="booking-recovery-actions">
-                <button type="button" onClick={() => setBooking(lastBooking)}>Xem lại mã & chọn kênh nhắn</button>
-                <button className="remove" type="button" onClick={removeLastBooking}>Xóa khỏi thiết bị</button>
+              <div className="booking-history-list">
+                {savedBookings.map((savedBooking) => (
+                  <article className="booking-history-item" key={savedBooking.booking_code}>
+                    <div>
+                      <strong>{savedBooking.booking_code}</strong>
+                      <span>{savedBooking.booking_time} • {savedBooking.booking_date}</span>
+                    </div>
+                    <div className="booking-history-actions">
+                      <button type="button" onClick={() => setBooking(savedBooking)}>Xem lại</button>
+                      <button
+                        className="remove"
+                        type="button"
+                        onClick={() => removeBookingFromDevice(savedBooking.booking_code)}
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  </article>
+                ))}
               </div>
             </div>
           )}

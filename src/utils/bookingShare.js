@@ -1,6 +1,7 @@
 import { salon } from '../data/salon.js';
 
 const LAST_BOOKING_KEY = 'at-nail-last-booking';
+const BOOKING_HISTORY_KEY = 'at-nail-booking-history';
 
 function formatDate(value = '') {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
@@ -105,28 +106,107 @@ export async function copyBookingText(text) {
 
 export function saveLastBooking(booking) {
   try {
-    localStorage.setItem(LAST_BOOKING_KEY, JSON.stringify({
+    const savedBooking = {
       ...booking,
       savedAt: new Date().toISOString(),
-    }));
+    };
+    const history = readSavedBookings()
+      .filter((item) => item.booking_code !== booking.booking_code);
+    localStorage.setItem(
+      BOOKING_HISTORY_KEY,
+      JSON.stringify([savedBooking, ...history]),
+    );
+    localStorage.removeItem(LAST_BOOKING_KEY);
   } catch {
     // Trình duyệt có thể chặn localStorage; booking trên Firebase vẫn không bị ảnh hưởng.
   }
 }
 
-export function readLastBooking() {
+export function isBookingExpired(booking, now = Date.now()) {
+  const date = String(booking?.booking_date || '');
+  const time = String(booking?.booking_time || '').slice(0, 5);
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(time);
+
+  if (!dateMatch || !timeMatch) return false;
+
+  const bookingTime = new Date(
+    Number(dateMatch[1]),
+    Number(dateMatch[2]) - 1,
+    Number(dateMatch[3]),
+    Number(timeMatch[1]),
+    Number(timeMatch[2]),
+    0,
+    0,
+  ).getTime();
+
+  return Number.isFinite(bookingTime) && bookingTime <= now;
+}
+
+function isValidSavedBooking(booking) {
+  return /^ATN-[0-9]{6}-[A-Z0-9]{8}$/.test(booking?.booking_code || '');
+}
+
+function sortSavedBookings(bookings) {
+  return [...bookings].sort((left, right) => {
+    const leftTime = `${left.booking_date || ''}T${left.booking_time || ''}`;
+    const rightTime = `${right.booking_date || ''}T${right.booking_time || ''}`;
+    return leftTime.localeCompare(rightTime);
+  });
+}
+
+export function replaceSavedBookings(bookings) {
   try {
-    const booking = JSON.parse(localStorage.getItem(LAST_BOOKING_KEY) || 'null');
-    return /^ATN-[0-9]{6}-[A-Z0-9]{8}$/.test(booking?.booking_code || '')
-      ? booking
-      : null;
+    const normalized = sortSavedBookings(
+      (Array.isArray(bookings) ? bookings : [])
+        .filter(isValidSavedBooking)
+        .filter((booking) => !isBookingExpired(booking)),
+    );
+    localStorage.setItem(BOOKING_HISTORY_KEY, JSON.stringify(normalized));
+    localStorage.removeItem(LAST_BOOKING_KEY);
+    return normalized;
   } catch {
-    return null;
+    return [];
   }
+}
+
+export function readSavedBookings() {
+  try {
+    const history = JSON.parse(localStorage.getItem(BOOKING_HISTORY_KEY) || 'null');
+    const legacyBooking = JSON.parse(localStorage.getItem(LAST_BOOKING_KEY) || 'null');
+    const source = Array.isArray(history)
+      ? history
+      : (isValidSavedBooking(legacyBooking) ? [legacyBooking] : []);
+    const seen = new Set();
+    const normalized = sortSavedBookings(source.filter((booking) => {
+      if (!isValidSavedBooking(booking) || isBookingExpired(booking)) return false;
+      if (seen.has(booking.booking_code)) return false;
+      seen.add(booking.booking_code);
+      return true;
+    }));
+
+    localStorage.setItem(BOOKING_HISTORY_KEY, JSON.stringify(normalized));
+    localStorage.removeItem(LAST_BOOKING_KEY);
+    return normalized;
+  } catch {
+    return [];
+  }
+}
+
+export function removeSavedBooking(bookingCode) {
+  return replaceSavedBookings(
+    readSavedBookings().filter((booking) => booking.booking_code !== bookingCode),
+  );
+}
+
+// Giữ lại API cũ để dữ liệu hoặc component cũ không bị lỗi khi nâng cấp.
+export function readLastBooking() {
+  return readSavedBookings()[0] || null;
 }
 
 export function clearLastBooking() {
   try {
+    localStorage.removeItem(BOOKING_HISTORY_KEY);
     localStorage.removeItem(LAST_BOOKING_KEY);
   } catch {
     // Không cần làm gì nếu trình duyệt chặn localStorage.

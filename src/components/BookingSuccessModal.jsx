@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Copy, ExternalLink, Instagram, X } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, Copy, ExternalLink, Instagram, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { salon } from '../data/salon';
 import { copyBookingText } from '../utils/bookingShare';
 
@@ -43,6 +44,13 @@ export default function BookingSuccessModal({ booking, onClose }) {
         </div>
 
         <div className="booking-success-actions">
+          <Link
+            className="btn primary"
+            to="/check-booking"
+            state={{ booking }}
+          >
+            Kiểm tra trạng thái <ClipboardCheck size={16} />
+          </Link>
           <a className="btn primary" href={salon.messengerUrl} target="_blank" rel="noreferrer">
             Mở Messenger <ExternalLink size={16} />
           </a>

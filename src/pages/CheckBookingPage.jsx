@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, Phone, Search, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { checkBooking } from '../services/bookingService';
-import { clearLastBooking, readLastBooking } from '../utils/bookingShare';
+import { readSavedBookings, removeSavedBooking } from '../utils/bookingShare';
 
 const statusLabel = {
   PENDING: 'Đang chờ xác nhận',
@@ -12,7 +12,12 @@ const statusLabel = {
 };
 
 export default function CheckBookingPage() {
-  const [lastBooking, setLastBooking] = useState(readLastBooking);
+  const location = useLocation();
+  const linkedBooking = location.state?.booking || null;
+  const [savedBookings, setSavedBookings] = useState(readSavedBookings);
+  const [selectedBooking, setSelectedBooking] = useState(
+    linkedBooking || savedBookings[0] || null,
+  );
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,11 +32,14 @@ export default function CheckBookingPage() {
     try {
       const booking = await checkBooking(data.bookingCode, data.phone);
       if (!booking) {
-        if (lastBooking?.booking_code === data.bookingCode.trim().toUpperCase()) {
-          clearLastBooking();
-          setLastBooking(null);
+        const bookingCode = data.bookingCode.trim().toUpperCase();
+        if (savedBookings.some((item) => item.booking_code === bookingCode)) {
+          setSavedBookings(removeSavedBooking(bookingCode));
         }
-        setMessage('Không tìm thấy lịch phù hợp. Hãy kiểm tra lại mã đặt lịch và số điện thoại. Nếu đây là lịch gần nhất đã lưu, thông tin cũ đã được xóa khỏi thiết bị.');
+        if (selectedBooking?.booking_code === bookingCode) {
+          setSelectedBooking(null);
+        }
+        setMessage('Không tìm thấy lịch phù hợp. Hãy kiểm tra lại mã đặt lịch và số điện thoại. Nếu mã này đã lưu trên thiết bị, thông tin cũ đã được xóa.');
       } else {
         setResult(booking);
       }
@@ -53,15 +61,15 @@ export default function CheckBookingPage() {
           <h1>Kiểm tra lịch hẹn</h1>
           <p className="lookup-intro">Nhập mã đặt lịch và số điện thoại bạn đã sử dụng.</p>
 
-          {lastBooking && (
+          {selectedBooking && (
             <p className="lookup-message">
-              Mã gần nhất trên thiết bị này: <strong>{lastBooking.booking_code}</strong>
+              Mã đang chọn: <strong>{selectedBooking.booking_code}</strong>
             </p>
           )}
 
           <form onSubmit={submit} className="lookup-form">
-            <label>Mã đặt lịch<input required name="bookingCode" defaultValue={lastBooking?.booking_code || ''} placeholder="ATN-260919-XXXXXXXX" /></label>
-            <label>Số điện thoại<input required name="phone" inputMode="tel" defaultValue={lastBooking?.phone || ''} placeholder="09xx xxx xxx" /></label>
+            <label>Mã đặt lịch<input required name="bookingCode" defaultValue={selectedBooking?.booking_code || ''} placeholder="ATN-260919-XXXXXXXX" /></label>
+            <label>Số điện thoại<input required name="phone" inputMode="tel" defaultValue={selectedBooking?.phone || ''} placeholder="09xx xxx xxx" /></label>
             <button className="btn primary" type="submit" disabled={loading}>
               <Search size={17} /> {loading ? 'Đang kiểm tra...' : 'Kiểm tra lịch'}
             </button>
