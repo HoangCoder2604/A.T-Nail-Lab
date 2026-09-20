@@ -36,16 +36,6 @@
   line-height:1.65;
 }
 
-.contact-channel{
-  display:grid;
-  grid-column:1/-1;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin:0;
-  padding:0;
-  border:0;
-}
-
 .service-choices{
   display:grid;
   grid-column:1/-1;
@@ -93,33 +83,6 @@
 
 .service-choice-group input{width:15px!important;min-height:15px!important;padding:0!important;margin:0}
 .service-choice-group label:has(input:checked){border-color:#b99286;background:#f5e5de;color:#704b43;box-shadow:0 0 0 2px rgba(185,146,134,.1)}
-
-.contact-channel legend{
-  grid-column:1/-1;
-  margin-bottom:10px;
-  color:#5c4a55;
-  font-size:14px;
-  font-weight:600;
-}
-
-.contact-channel label{
-  display:grid;
-  grid-template-columns:auto auto 1fr;
-  align-items:center;
-  gap:10px;
-  min-height:66px;
-  padding:12px 14px;
-  border:1px solid #ddd0c8;
-  border-radius:14px;
-  background:#fffaf7;
-  cursor:pointer;
-}
-
-.contact-channel input{width:16px!important;min-height:16px!important;padding:0!important}
-.contact-channel label:has(input:checked){border-color:#b99286;background:#fff3ed;box-shadow:0 0 0 3px rgba(185,146,134,.1)}
-.contact-channel span{display:grid;gap:2px}
-.contact-channel strong{font-size:13px}
-.contact-channel small{color:#8a7c75;font-size:10px;font-weight:500}
 
 .demo-mode-banner,
 .admin-demo-banner{
@@ -472,7 +435,6 @@
   .booking-success-actions{grid-template-columns:1fr}
   .booking-success-actions .btn{min-height:48px}
   .booking-success-instruction{font-size:14px}
-  .contact-channel{grid-template-columns:1fr}
   .lookup-card{padding:28px 20px}
   .lookup-form{grid-template-columns:1fr}
   .lookup-details{grid-template-columns:1fr}

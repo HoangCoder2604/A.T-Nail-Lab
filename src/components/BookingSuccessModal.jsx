@@ -15,7 +15,7 @@ export default function BookingSuccessModal({ booking, onClose }) {
 
   const copyAgain = async () => {
     const copied = await copyBookingText(booking.shareText);
-    setCopyState(copied ? 'Đã sao chép. Bạn hãy mở Messenger hoặc Instagram, dán và gửi nhé.' : 'Không thể tự sao chép. Vui lòng thử lại.');
+    setCopyState(copied ? 'Đã sao chép. Bây giờ bạn hãy mở Messenger hoặc Instagram, dán và gửi nhé.' : 'Không thể sao chép. Vui lòng thử lại.');
   };
 
   return (
@@ -44,26 +44,28 @@ export default function BookingSuccessModal({ booking, onClose }) {
         </div>
 
         <div className="booking-success-actions">
+          <button className="btn primary" type="button" onClick={copyAgain}>
+            {copyState.startsWith('Đã sao chép')
+              ? <>Đã sao chép <CheckCircle2 size={16} /></>
+              : <>1. Sao chép thông tin <Copy size={16} /></>}
+          </button>
+          <a className="btn ghost" href={salon.messengerUrl} target="_blank" rel="noreferrer">
+            2. Mở Messenger <ExternalLink size={16} />
+          </a>
+          <a className="btn ghost" href={salon.instagramMessageUrl} target="_blank" rel="noreferrer">
+            2. Mở Instagram <Instagram size={16} />
+          </a>
           <Link
-            className="btn primary"
+            className="btn ghost"
             to="/check-booking"
             state={{ booking }}
           >
             Kiểm tra trạng thái <ClipboardCheck size={16} />
           </Link>
-          <a className="btn primary" href={salon.messengerUrl} target="_blank" rel="noreferrer">
-            Mở Messenger <ExternalLink size={16} />
-          </a>
-          <a className="btn ghost" href={salon.instagramMessageUrl} target="_blank" rel="noreferrer">
-            Mở Instagram <Instagram size={16} />
-          </a>
-          <button className="btn ghost" type="button" onClick={copyAgain}>
-            Sao chép lại <Copy size={16} />
-          </button>
         </div>
 
         <p className="booking-success-note booking-success-instruction">
-          {booking.copied ? 'Thông tin đặt lịch đã được sao chép.' : 'Nếu thông tin chưa được sao chép, hãy bấm “Sao chép lại”.'} Hãy mở <strong>Messenger hoặc Instagram</strong>, sau đó <strong>Dán → Gửi</strong> cho A.T Nail Lab. Tiệm sẽ đối chiếu mã lịch và phản hồi cho bạn.
+          <strong>Bước 1:</strong> Bấm “Sao chép thông tin”. <strong>Bước 2:</strong> Mở Messenger hoặc Instagram, sau đó <strong>Dán → Gửi</strong> cho A.T Nail Lab. Tiệm sẽ đối chiếu mã lịch và phản hồi cho bạn.
         </p>
         {copyState && <p className="booking-success-note">{copyState}</p>}
       </div>

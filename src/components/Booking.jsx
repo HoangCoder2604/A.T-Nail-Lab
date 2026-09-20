@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
-  Instagram,
   LoaderCircle,
-  MessageCircle,
   Phone,
   ShieldCheck,
   TriangleAlert,
@@ -18,7 +16,6 @@ import {
 import BookingSuccessModal from './BookingSuccessModal';
 import {
   buildBookingShareText,
-  copyBookingText,
   isBookingExpired,
   readSavedBookings,
   removeSavedBooking,
@@ -57,27 +54,6 @@ function todayISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
-}
-
-function prepareContactTab(channel) {
-  const tab = window.open('', '_blank');
-  if (!tab) return null;
-
-  try {
-    const channelName = channel === 'instagram' ? 'Instagram' : 'Messenger';
-    tab.document.title = `A.T Nail Lab • Đang mở ${channelName}`;
-    tab.document.body.innerHTML = `
-      <div style="min-height:100vh;display:grid;place-items:center;background:#f7f3ef;color:#362b27;font-family:system-ui,sans-serif;padding:24px;text-align:center">
-        <div>
-          <div style="font-family:Georgia,serif;font-size:38px;margin-bottom:10px">A.T Nail Lab</div>
-          <p style="margin:0;color:#756d68;line-height:1.7">Đang hoàn tất lịch hẹn của bạn…<br/>Khi ${channelName} mở, hãy dán thông tin và gửi cho A.T Nail Lab.</p>
-        </div>
-      </div>`;
-  } catch {
-    // Một số browser hạn chế thao tác với about:blank; vẫn có thể redirect tab sau đó.
-  }
-
-  return tab;
 }
 
 export default function Booking() {
@@ -184,21 +160,10 @@ export default function Booking() {
     setStatusType('info');
     setStatus('Đang kiểm tra khung giờ và hoàn tất lịch hẹn…');
 
-    const contactChannel = data.contact_channel === 'instagram' ? 'instagram' : 'messenger';
-    const contactUrl = contactChannel === 'instagram'
-      ? salon.instagramMessageUrl
-      : salon.messengerUrl;
-
-    // Mở tab ngay trong user gesture để giảm khả năng Safari/Chrome chặn popup.
-    // Tab chỉ được chuyển sang kênh đã chọn SAU KHI Firebase commit thành công.
-    const contactTab = prepareContactTab(contactChannel);
-
     let created;
     try {
       created = await createBooking(data);
     } catch (error) {
-      if (contactTab && !contactTab.closed) contactTab.close();
-
       if (error instanceof BookingConflictError || error?.code === 'BOOKING_TIME_CONFLICT') {
         setStatusType('error');
         setStatus('Khoảng thời gian này đã đủ 2 khách. Vui lòng chọn giờ khác.');
@@ -219,28 +184,17 @@ export default function Booking() {
     void notifyAdminOfNewBooking(created.booking_code);
 
     const shareText = buildBookingShareText(created);
-    const copied = await copyBookingText(shareText);
-    const savedBooking = { ...created, shareText, copied };
+    const savedBooking = { ...created, shareText, copied: false };
 
     saveLastBooking(savedBooking);
     setSavedBookings(readSavedBookings());
     setBooking(savedBooking);
     setStatusType('success');
-    setStatus(
-      copied
-        ? `Đặt lịch thành công • ${created.booking_code} • Đã sao chép thông tin`
-        : `Đặt lịch thành công • ${created.booking_code} • Hãy bấm “Sao chép lại”`,
-    );
+    setStatus(`Đặt lịch thành công • ${created.booking_code}`);
     form.reset();
     setSelectedServices(['Sơn gel']);
     setLoading(false);
 
-    // Cho modal thành công kịp render trước khi chuyển tab phụ sang kênh đã chọn.
-    window.setTimeout(() => {
-      if (contactTab && !contactTab.closed) {
-        contactTab.location.replace(contactUrl);
-      }
-    }, 450);
   };
 
   return (
@@ -369,19 +323,6 @@ export default function Booking() {
                 />
               </label>
 
-              <fieldset className="contact-channel full">
-                <legend>Chọn kênh nhắn tin sau khi đặt lịch</legend>
-                <label>
-                  <input type="radio" name="contact_channel" value="messenger" defaultChecked />
-                  <MessageCircle size={18} />
-                  <span><strong>Messenger</strong><small>A.T Nail Lab</small></span>
-                </label>
-                <label>
-                  <input type="radio" name="contact_channel" value="instagram" />
-                  <Instagram size={18} />
-                  <span><strong>Instagram</strong><small>@{salon.instagram}</small></span>
-                </label>
-              </fieldset>
             </div>
 
             <p className="booking-slot-note">
@@ -391,7 +332,7 @@ export default function Booking() {
             <button className="btn primary full-btn magnetic" type="submit" disabled={loading}>
               {loading
                 ? <>Đang đặt lịch… <LoaderCircle size={17} /></>
-                : <>Đặt lịch & mở kênh nhắn tin <MessageCircle size={17} /></>}
+                : <>Đặt lịch <CheckCircle2 size={17} /></>}
             </button>
 
             {status && (
@@ -404,7 +345,7 @@ export default function Booking() {
             )}
 
             <p className="booking-helper-text">
-              Thông tin sẽ được tự động sao chép. Khi Messenger hoặc Instagram mở, bạn chỉ cần dán và gửi cho A.T Nail Lab.
+              Sau khi đặt thành công, hãy sao chép thông tin trong hộp thoại rồi chọn Messenger hoặc Instagram để gửi cho A.T Nail Lab.
             </p>
           </form>
 
