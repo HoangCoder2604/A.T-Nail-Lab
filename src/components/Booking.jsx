@@ -15,7 +15,13 @@ import {
   notifyAdminOfNewBooking,
 } from '../services/bookingService';
 import BookingSuccessModal from './BookingSuccessModal';
-import { buildBookingShareText, copyBookingText } from '../utils/bookingShare';
+import {
+  buildBookingShareText,
+  clearLastBooking,
+  copyBookingText,
+  readLastBooking,
+  saveLastBooking,
+} from '../utils/bookingShare';
 
 function todayISO() {
   const now = new Date();
@@ -48,7 +54,14 @@ export default function Booking() {
   const [statusType, setStatusType] = useState('');
   const [loading, setLoading] = useState(false);
   const [booking, setBooking] = useState(null);
+  const [lastBooking, setLastBooking] = useState(readLastBooking);
   const minDate = useMemo(todayISO, []);
+
+  const removeLastBooking = () => {
+    clearLastBooking();
+    setLastBooking(null);
+    setBooking(null);
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -68,45 +81,53 @@ export default function Booking() {
     // Tab chỉ được chuyển sang Messenger SAU KHI Firebase commit thành công.
     const messengerTab = prepareMessengerTab();
 
+    let created;
     try {
-      const created = await createBooking(data);
-
-      // Push cho admin là best-effort: booking đã commit vào Firestore trước.
-      // Nếu đang chạy `npm run dev`, Vite không có Vercel /api nên lời gọi này
-      // có thể không gửi push; dashboard realtime vẫn nhận booking ngay lập tức.
-      void notifyAdminOfNewBooking(created.booking_code);
-
-      const shareText = buildBookingShareText(created);
-      const copied = await copyBookingText(shareText);
-
-      setBooking({ ...created, shareText, copied });
-      setStatusType('success');
-      setStatus(
-        copied
-          ? `Đặt lịch thành công • ${created.booking_code} • Đã sao chép thông tin`
-          : `Đặt lịch thành công • ${created.booking_code}`,
-      );
-      form.reset();
-
-      // Cho modal thành công kịp render trước khi chuyển tab phụ sang Messenger.
-      window.setTimeout(() => {
-        if (messengerTab && !messengerTab.closed) {
-          messengerTab.location.replace(salon.messengerUrl);
-        }
-      }, 450);
+      created = await createBooking(data);
     } catch (error) {
       if (messengerTab && !messengerTab.closed) messengerTab.close();
 
       if (error instanceof BookingConflictError || error?.code === 'BOOKING_TIME_CONFLICT') {
         setStatusType('error');
         setStatus('Khung giờ này đã có khách đặt. Hãy chọn giờ khác cách ít nhất 30 phút.');
+      } else if (/^(Vui lòng|A\.T Nail Lab)/.test(error?.message || '')) {
+        setStatusType('error');
+        setStatus(error.message);
       } else {
+        console.error('Booking create failed:', error);
         setStatusType('error');
         setStatus('Không thể đặt lịch lúc này. Vui lòng thử lại.');
       }
-    } finally {
       setLoading(false);
+      return;
     }
+
+    // Từ đây booking chắc chắn đã được Firebase lưu. Các bước phụ không được phép
+    // đổi kết quả thành thất bại nếu clipboard, localStorage hoặc popup bị chặn.
+    void notifyAdminOfNewBooking(created.booking_code);
+
+    const shareText = buildBookingShareText(created);
+    const copied = await copyBookingText(shareText);
+    const savedBooking = { ...created, shareText, copied };
+
+    saveLastBooking(savedBooking);
+    setLastBooking(savedBooking);
+    setBooking(savedBooking);
+    setStatusType('success');
+    setStatus(
+      copied
+        ? `Đặt lịch thành công • ${created.booking_code} • Đã sao chép thông tin`
+        : `Đặt lịch thành công • ${created.booking_code} • Hãy bấm “Sao chép lại”`,
+    );
+    form.reset();
+    setLoading(false);
+
+    // Cho modal thành công kịp render trước khi chuyển tab phụ sang Messenger.
+    window.setTimeout(() => {
+      if (messengerTab && !messengerTab.closed) {
+        messengerTab.location.replace(salon.messengerUrl);
+      }
+    }, 450);
   };
 
   return (
@@ -126,6 +147,19 @@ export default function Booking() {
           <p className="eyebrow">BOOK YOUR APPOINTMENT</p>
           <h2>Đặt lịch trước,<br /><em>thảnh thơi hơn.</em></h2>
           <p className="promo-line"><CalendarDays /> {salon.promo}</p>
+
+          {lastBooking && (
+            <div className="booking-recovery">
+              <div>
+                <span>Lịch gần nhất trên thiết bị này</span>
+                <strong>{lastBooking.booking_code}</strong>
+              </div>
+              <div className="booking-recovery-actions">
+                <button type="button" onClick={() => setBooking(lastBooking)}>Xem lại mã & gửi Messenger</button>
+                <button className="remove" type="button" onClick={removeLastBooking}>Xóa khỏi thiết bị</button>
+              </div>
+            </div>
+          )}
 
           <div className="booking-trust-row">
             <span><CheckCircle2 size={15} /> Xác nhận yêu cầu đặt lịch nhanh chóng</span>
@@ -186,7 +220,7 @@ export default function Booking() {
                   type="time"
                   min={bookingHours.open}
                   max={bookingHours.close}
-                  step="1800"
+                  step="60"
                 />
               </label>
 
@@ -202,7 +236,7 @@ export default function Booking() {
             </div>
 
             <p className="booking-slot-note">
-              Nhận lịch từ {bookingHours.open} đến {bookingHours.close}, mỗi khung giờ cách nhau 30 phút. Nếu giờ bạn chọn đã có khách, vui lòng chọn một giờ khác.
+              Nhận lịch từ {bookingHours.open} đến {bookingHours.close}. Bạn có thể chọn từng phút; mỗi lịch cần cách lịch đã đặt ít nhất 30 phút.
             </p>
 
             <button className="btn primary full-btn magnetic" type="submit" disabled={loading}>

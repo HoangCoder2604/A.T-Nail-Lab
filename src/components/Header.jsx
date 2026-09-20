@@ -7,7 +7,8 @@ const links = [
   ['Dịch vụ', '#services'],
   ['Bộ sưu tập', '#gallery'],
   ['Bảng giá', '#pricing'],
-  ['Về A.T', '#about']
+  ['Về A.T', '#about'],
+  ['Kiểm tra lịch', '/check-booking']
 ];
 
 export default function Header(){

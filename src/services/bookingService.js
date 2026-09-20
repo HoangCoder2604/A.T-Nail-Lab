@@ -45,12 +45,29 @@ function normalizeTime(time = '') {
   return String(time).slice(0, 5);
 }
 
-function isHalfHourTime(time = '') {
-  return /^([01]\d|2[0-3]):(00|30)$/.test(normalizeTime(time));
+function isValidTime(time = '') {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(normalizeTime(time));
 }
 
 function makeSlotId(date, time) {
   return `${date}_${normalizeTime(time)}`;
+}
+
+function getNearbySlotIds(date, time) {
+  const [hour, minute] = normalizeTime(time).split(':').map(Number);
+  const currentMinutes = hour * 60 + minute;
+  const ids = [];
+
+  for (let offset = -(BOOKING_MIN_GAP_MINUTES - 1); offset < BOOKING_MIN_GAP_MINUTES; offset += 1) {
+    const candidateMinutes = currentMinutes + offset;
+    if (candidateMinutes < 0 || candidateMinutes >= 24 * 60) continue;
+
+    const candidateHour = String(Math.floor(candidateMinutes / 60)).padStart(2, '0');
+    const candidateMinute = String(candidateMinutes % 60).padStart(2, '0');
+    ids.push(makeSlotId(date, `${candidateHour}:${candidateMinute}`));
+  }
+
+  return ids;
 }
 
 function toLocalDateTime(date, time) {
@@ -91,8 +108,8 @@ function validateBookingInput(formData) {
   if (!formData.date) throw new Error('Vui lòng chọn ngày đặt lịch.');
   if (!formData.time) throw new Error('Vui lòng chọn giờ đặt lịch.');
 
-  if (!isHalfHourTime(formData.time)) {
-    throw new Error('A.T Nail Lab nhận lịch theo mốc 30 phút. Vui lòng chọn giờ :00 hoặc :30.');
+  if (!isValidTime(formData.time)) {
+    throw new Error('Giờ đặt lịch chưa hợp lệ.');
   }
 
   const bookingTime = normalizeTime(formData.time);
@@ -138,10 +155,16 @@ export async function createBooking(formData) {
   const publicRef = doc(firestoreDb, 'bookingPublic', lookupKey);
 
   await runTransaction(firestoreDb, async (transaction) => {
-    // Đây là khóa chống race-condition. Hai người cùng bấm một slot sẽ cạnh tranh
-    // trên đúng document bookingSlots/{date_time}; Firestore chỉ cho một transaction commit.
-    const slotSnap = await transaction.get(slotRef);
-    if (slotSnap.exists()) {
+    // Đọc mọi giờ bắt đầu nằm trong khoảng ±29 phút. Nếu một giao dịch đồng thời
+    // tạo bất kỳ document nào vừa được đọc, Firestore sẽ retry transaction và phát
+    // hiện xung đột. Hai lịch cách đúng 30 phút vẫn được chấp nhận.
+    const nearbySlotRefs = getNearbySlotIds(formData.date, bookingTime)
+      .map((nearbySlotId) => doc(firestoreDb, 'bookingSlots', nearbySlotId));
+    const nearbySlotSnapshots = await Promise.all(
+      nearbySlotRefs.map((nearbySlotRef) => transaction.get(nearbySlotRef)),
+    );
+
+    if (nearbySlotSnapshots.some((snapshot) => snapshot.exists())) {
       throw new BookingConflictError();
     }
 

@@ -1,6 +1,18 @@
+import { salon } from '../data/salon.js';
+
+const LAST_BOOKING_KEY = 'at-nail-last-booking';
+
 function formatDate(value = '') {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
   return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value);
+}
+
+function bookingDetails(booking) {
+  return [
+    `Mã lịch: ${booking.booking_code}`,
+    `Dịch vụ: ${booking.service}`,
+    `Thời gian: ${String(booking.booking_time || '').slice(0, 5)} ngày ${formatDate(booking.booking_date)}`,
+  ];
 }
 
 export function buildBookingShareText(booking) {
@@ -19,8 +31,47 @@ export function buildBookingShareText(booking) {
   ].join('\n');
 }
 
+export function buildAdminStatusReply(booking, status) {
+  const details = bookingDetails(booking);
+
+  if (status === 'CONFIRMED') {
+    return [
+      '💅 A.T Nail Lab xác nhận lịch của bạn nhé!',
+      '',
+      ...details,
+      '',
+      `Hẹn bạn tại: ${salon.address}`,
+      `Google Maps: ${salon.mapsUrl}`,
+      '',
+      'Hẹn gặp bạn tại A.T Nail Lab nha 💕',
+    ].join('\n');
+  }
+
+  if (status === 'CANCELLED') {
+    return [
+      '💅 A.T Nail Lab rất tiếc, lịch này hiện chưa thể xác nhận.',
+      '',
+      ...details,
+      '',
+      'Bạn vui lòng chọn khung giờ khác hoặc nhắn lại để A.T Nail Lab hỗ trợ nhé 💕',
+    ].join('\n');
+  }
+
+  if (status === 'COMPLETED') {
+    return [
+      '💅 Cảm ơn bạn đã ghé A.T Nail Lab!',
+      '',
+      ...details,
+      '',
+      'Hy vọng bạn hài lòng với bộ móng mới. Hẹn gặp lại bạn trong lần tiếp theo nha 💕',
+    ].join('\n');
+  }
+
+  return '';
+}
+
 export async function copyBookingText(text) {
-  if (navigator.clipboard?.writeText) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
       return true;
@@ -29,17 +80,51 @@ export async function copyBookingText(text) {
     }
   }
 
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
+  if (typeof document === 'undefined') return false;
 
+  let textarea;
   try {
+    textarea = document.createElement('textarea');
+    textarea.value = String(text || '');
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
     return document.execCommand('copy');
+  } catch {
+    return false;
   } finally {
-    textarea.remove();
+    textarea?.remove();
+  }
+}
+
+export function saveLastBooking(booking) {
+  try {
+    localStorage.setItem(LAST_BOOKING_KEY, JSON.stringify({
+      ...booking,
+      savedAt: new Date().toISOString(),
+    }));
+  } catch {
+    // Trình duyệt có thể chặn localStorage; booking trên Firebase vẫn không bị ảnh hưởng.
+  }
+}
+
+export function readLastBooking() {
+  try {
+    const booking = JSON.parse(localStorage.getItem(LAST_BOOKING_KEY) || 'null');
+    return /^ATN-[0-9]{6}-[A-Z0-9]{8}$/.test(booking?.booking_code || '')
+      ? booking
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearLastBooking() {
+  try {
+    localStorage.removeItem(LAST_BOOKING_KEY);
+  } catch {
+    // Không cần làm gì nếu trình duyệt chặn localStorage.
   }
 }

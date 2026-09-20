@@ -11,7 +11,7 @@ Bản này được nâng cấp trực tiếp từ source A.T Nail Lab đã depl
 - Admin dashboard tại `/admin`: xem, tìm, lọc, xác nhận, hoàn thành, hủy lịch.
 - Chống đặt trùng bằng `bookingSlots` + Firestore transaction.
 - Hai khách bấm cùng một slot gần như đồng thời: chỉ một transaction được commit.
-- Slot lịch là mỗi 30 phút (`:00` / `:30`). Hai lịch cách đúng 30 phút được chấp nhận.
+- Khách có thể chọn giờ theo từng phút trong khung 09:30–20:30. Hai lịch phải cách nhau ít nhất 30 phút; ví dụ 14:00 và 14:35 hợp lệ, còn 14:29 thì không.
 - Khi admin hủy lịch, slot được giải phóng để khách khác đặt lại.
 - `vercel.json` đã có rewrite cho `/admin`, `/admin/login`, `/check-booking`.
 

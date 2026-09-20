@@ -364,3 +364,66 @@
   border-radius:12px;
   padding:10px 12px;
 }
+.booking-recovery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 18px 0;
+  padding: 15px 17px;
+  border: 1px solid rgba(170, 111, 107, 0.22);
+  border-radius: 16px;
+  background: rgba(255, 250, 247, 0.82);
+}
+
+.booking-recovery > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.booking-recovery span {
+  color: #8e817a;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.booking-recovery strong {
+  color: #6f4541;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+}
+
+.booking-recovery button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #9b5d58;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.booking-recovery-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+}
+
+.booking-recovery-actions .remove {
+  color: #8e817a;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .booking-recovery {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .booking-recovery-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

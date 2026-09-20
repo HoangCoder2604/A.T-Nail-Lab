@@ -1,4 +1,4 @@
-const messengerPageId = import.meta.env.VITE_MESSENGER_PAGE || '61584573756566';
+const messengerPageId = import.meta.env?.VITE_MESSENGER_PAGE || '61584573756566';
 const messengerUrl = `https://m.me/${messengerPageId}`;
 
 export const bookingHours = {

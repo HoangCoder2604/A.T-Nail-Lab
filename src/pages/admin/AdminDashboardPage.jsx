@@ -27,6 +27,7 @@ import {
   subscribeForegroundPush,
   syncAdminPushTokenIfAllowed,
 } from '../../services/adminNotificationService';
+import { buildAdminStatusReply, copyBookingText } from '../../utils/bookingShare';
 
 const notificationLabels = {
   loading: 'Đang kiểm tra…',
@@ -196,7 +197,14 @@ export default function AdminDashboardPage() {
       // onSnapshot sẽ cập nhật lại danh sách; update local ngay để UI phản hồi tức thì.
       setBookings((current) => current.map((item) => item.id === booking.id ? updated : item));
 
-      setNotice('Đã cập nhật trạng thái lịch hẹn. Bạn có thể phản hồi khách trực tiếp trên Messenger.');
+      const replyText = buildAdminStatusReply(updated, status);
+      const copied = replyText ? await copyBookingText(replyText) : false;
+
+      setNotice(
+        copied
+          ? 'Đã cập nhật trạng thái và sao chép tin nhắn. Hãy dán vào Messenger để gửi cho khách.'
+          : 'Đã cập nhật trạng thái lịch hẹn, nhưng trình duyệt không thể tự sao chép tin nhắn.',
+      );
     } catch (error) {
       setNotice('Không cập nhật được lịch hẹn. Vui lòng thử lại.');
     } finally {

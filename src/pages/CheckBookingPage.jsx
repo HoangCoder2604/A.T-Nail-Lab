@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, Phone, Search, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { checkBooking } from '../services/bookingService';
+import { clearLastBooking, readLastBooking } from '../utils/bookingShare';
 
 const statusLabel = {
   PENDING: 'Đang chờ xác nhận',
@@ -11,6 +12,7 @@ const statusLabel = {
 };
 
 export default function CheckBookingPage() {
+  const [lastBooking, setLastBooking] = useState(readLastBooking);
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,11 @@ export default function CheckBookingPage() {
     try {
       const booking = await checkBooking(data.bookingCode, data.phone);
       if (!booking) {
-        setMessage('Không tìm thấy lịch phù hợp. Hãy kiểm tra lại mã đặt lịch và số điện thoại.');
+        if (lastBooking?.booking_code === data.bookingCode.trim().toUpperCase()) {
+          clearLastBooking();
+          setLastBooking(null);
+        }
+        setMessage('Không tìm thấy lịch phù hợp. Hãy kiểm tra lại mã đặt lịch và số điện thoại. Nếu đây là lịch gần nhất đã lưu, thông tin cũ đã được xóa khỏi thiết bị.');
       } else {
         setResult(booking);
       }
@@ -47,9 +53,15 @@ export default function CheckBookingPage() {
           <h1>Kiểm tra lịch hẹn</h1>
           <p className="lookup-intro">Nhập mã đặt lịch và số điện thoại bạn đã sử dụng.</p>
 
+          {lastBooking && (
+            <p className="lookup-message">
+              Mã gần nhất trên thiết bị này: <strong>{lastBooking.booking_code}</strong>
+            </p>
+          )}
+
           <form onSubmit={submit} className="lookup-form">
-            <label>Mã đặt lịch<input required name="bookingCode" placeholder="ATN-260919-AB12" /></label>
-            <label>Số điện thoại<input required name="phone" inputMode="tel" placeholder="09xx xxx xxx" /></label>
+            <label>Mã đặt lịch<input required name="bookingCode" defaultValue={lastBooking?.booking_code || ''} placeholder="ATN-260919-XXXXXXXX" /></label>
+            <label>Số điện thoại<input required name="phone" inputMode="tel" defaultValue={lastBooking?.phone || ''} placeholder="09xx xxx xxx" /></label>
             <button className="btn primary" type="submit" disabled={loading}>
               <Search size={17} /> {loading ? 'Đang kiểm tra...' : 'Kiểm tra lịch'}
             </button>
